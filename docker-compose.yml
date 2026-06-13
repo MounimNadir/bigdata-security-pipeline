@@ -1,1 +1,199 @@
+version: "3.8"
 
+networks:
+  pipeline-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  grafana-data:
+  kafka-data:
+
+services:
+
+  # ============================================================
+  # KAFKA - KRaft mode (no Zookeeper)
+  # ============================================================
+  kafka:
+    image: bitnami/kafka:3.7.0
+    container_name: kafka
+    networks:
+      - pipeline-net
+    ports:
+      - "9092:9092"   # internal container-to-container
+      - "29092:29092" # external host access for debugging
+      - "9093:9093"   # KRaft controller
+    volumes:
+      - kafka-data:/bitnami/kafka
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_LOG_RETENTION_MS=${KAFKA_RETENTION_MS}
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ============================================================
+  # KAFKA INIT - Creates topics then exits
+  # ============================================================
+  kafka-init:
+    image: bitnami/kafka:3.7.0
+    container_name: kafka-init
+    networks:
+      - pipeline-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    # topic names hardcoded here — env var substitution is unreliable in this block
+    command: |
+      "
+      echo 'Creating Kafka topics...'
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic auth-logs     --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic firewall-logs --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic web-logs      --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      echo 'Topics created:'
+      kafka-topics.sh --bootstrap-server kafka:9092 --list
+      "
+    restart: on-failure
+
+  # ============================================================
+  # KAFKA UI - Monitor topics visually
+  # ============================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    networks:
+      - pipeline-net
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+
+  # ============================================================
+  # POSTGRESQL - Stores alerts and traffic_stats
+  # ============================================================
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    networks:
+      - pipeline-net
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ============================================================
+  # PRODUCER - Generates and sends logs to Kafka
+  # ============================================================
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: producer
+    networks:
+      - pipeline-net
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_TOPIC_AUTH=${KAFKA_TOPIC_AUTH}
+      - KAFKA_TOPIC_FIREWALL=${KAFKA_TOPIC_FIREWALL}
+      - KAFKA_TOPIC_WEB=${KAFKA_TOPIC_WEB}
+      - PRODUCER_RATE_AUTH=${PRODUCER_RATE_AUTH}
+      - PRODUCER_RATE_FIREWALL=${PRODUCER_RATE_FIREWALL}
+      - PRODUCER_RATE_WEB=${PRODUCER_RATE_WEB}
+      - ATTACK_INTERVAL_MIN=${ATTACK_INTERVAL_MIN}
+      - ATTACK_INTERVAL_MAX=${ATTACK_INTERVAL_MAX}
+      - GEOIP_DB_PATH=${GEOIP_DB_PATH}
+    restart: unless-stopped
+
+  # ============================================================
+  # SPARK - Stream processor and anomaly detector
+  # ============================================================
+  spark:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    container_name: spark
+    networks:
+      - pipeline-net
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "4040:4040"  # Spark UI — monitor jobs at localhost:4040
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_TOPIC_AUTH=${KAFKA_TOPIC_AUTH}
+      - KAFKA_TOPIC_FIREWALL=${KAFKA_TOPIC_FIREWALL}
+      - KAFKA_TOPIC_WEB=${KAFKA_TOPIC_WEB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - SPARK_BATCH_INTERVAL=${SPARK_BATCH_INTERVAL}
+      - SPARK_DRIVER_MEMORY=${SPARK_DRIVER_MEMORY}
+      - SPARK_EXECUTOR_MEMORY=${SPARK_EXECUTOR_MEMORY}
+      - PARQUET_OUTPUT_PATH=${PARQUET_OUTPUT_PATH}
+      - GEOIP_DB_PATH=${GEOIP_DB_PATH}
+    restart: unless-stopped
+
+  # ============================================================
+  # GRAFANA - Live security dashboard
+  # ============================================================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    networks:
+      - pipeline-net
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/security.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./dashboard/grafana/provisioning:/etc/grafana/provisioning
+      - ./dashboard/grafana/dashboards:/etc/grafana/dashboards
+    restart: unless-stopped
