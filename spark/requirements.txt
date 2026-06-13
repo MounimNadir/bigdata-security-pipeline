@@ -1,0 +1,11 @@
+# PySpark — must match the Spark image version (3.5.0)
+pyspark==3.5.0
+
+# PostgreSQL adapter — used in foreachBatch writes
+psycopg2-binary==2.9.9
+
+# GeoIP lookups — country from IP address
+geoip2==4.8.0
+
+# Environment variable loading
+python-dotenv==1.0.0
