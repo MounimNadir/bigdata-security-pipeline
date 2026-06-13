@@ -26,7 +26,7 @@ RUN curl -o ${SPARK_JARS_DIR}/spark-sql-kafka.jar \
 # Kafka clients JAR (required by the Kafka connector)
 RUN curl -o ${SPARK_JARS_DIR}/kafka-clients.jar \
     https://repo1.maven.org/maven2/org/apache/kafka/\
-    kafka-clients/3.4.0/kafka-clients-3.4.0.jar
+    kafka-clients/3.7.0/kafka-clients-3.7.0.jar
 
 # Spark Kafka token provider (required dependency)
 RUN curl -o ${SPARK_JARS_DIR}/spark-token-provider.jar \

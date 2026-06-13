@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   pipeline-net:
     driver: bridge
@@ -10,19 +8,18 @@ volumes:
   kafka-data:
 
 services:
-
   # ============================================================
   # KAFKA - KRaft mode (no Zookeeper)
   # ============================================================
   kafka:
-    image: bitnami/kafka:3.7.0
+    image: bitnami/kafka:3.9.0
     container_name: kafka
     networks:
       - pipeline-net
     ports:
-      - "9092:9092"   # internal container-to-container
+      - "9092:9092" # internal container-to-container
       - "29092:29092" # external host access for debugging
-      - "9093:9093"   # KRaft controller
+      - "9093:9093" # KRaft controller
     volumes:
       - kafka-data:/bitnami/kafka
     environment:
@@ -39,7 +36,11 @@ services:
       - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics.sh --bootstrap-server localhost:9092 --list",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -49,7 +50,7 @@ services:
   # KAFKA INIT - Creates topics then exits
   # ============================================================
   kafka-init:
-    image: bitnami/kafka:3.7.0
+    image: bitnami/kafka:3.9.0
     container_name: kafka-init
     networks:
       - pipeline-net
@@ -156,7 +157,7 @@ services:
     volumes:
       - ./data:/app/data
     ports:
-      - "4040:4040"  # Spark UI — monitor jobs at localhost:4040
+      - "4040:4040" # Spark UI — monitor jobs at localhost:4040
     environment:
       - KAFKA_BROKER=${KAFKA_BROKER}
       - KAFKA_TOPIC_AUTH=${KAFKA_TOPIC_AUTH}
