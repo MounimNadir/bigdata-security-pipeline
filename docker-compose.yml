@@ -64,37 +64,10 @@ services:
       kafka:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
-    command: |
-      "
-      echo 'Creating Kafka topics...'
-
-      /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server kafka:9092 \
-        --create --if-not-exists \
-        --topic auth-logs \
-        --partitions 3 \
-        --replication-factor 1 \
-        --config retention.ms=604800000
-
-      /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server kafka:9092 \
-        --create --if-not-exists \
-        --topic firewall-logs \
-        --partitions 3 \
-        --replication-factor 1 \
-        --config retention.ms=604800000
-
-      /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server kafka:9092 \
-        --create --if-not-exists \
-        --topic web-logs \
-        --partitions 3 \
-        --replication-factor 1 \
-        --config retention.ms=604800000
-
-      echo 'Topics created successfully:'
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
-      "
+    command:
+      [
+        "echo 'Creating topics...' && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic auth-logs --partitions 3 --replication-factor 1 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic firewall-logs --partitions 3 --replication-factor 1 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic web-logs --partitions 3 --replication-factor 1 --config retention.ms=604800000 && echo 'Done:' && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list",
+      ]
     restart: on-failure
 
   # ============================================================
