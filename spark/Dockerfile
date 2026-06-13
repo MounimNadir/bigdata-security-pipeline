@@ -1,14 +1,13 @@
 FROM python:3.11-slim
 
-# Set working directory
+# Set working directory inside container
 WORKDIR /app
 
-# Install dependencies first (Docker layer caching)
-# If requirements.txt doesn't change, this layer is cached
+# Copy and install dependencies first (layer caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Copy all producer source code
 COPY . .
 
 # Run the producer
