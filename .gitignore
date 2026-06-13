@@ -227,3 +227,10 @@ __pycache__/
 # Spark output
 spark/output/
 *.parquet
+
+# Parquet data files
+data/parquet/**/*.parquet
+data/parquet/**/*.crc
+
+# GeoIP database (large binary file — each person downloads their own)
+data/*.mmdb
