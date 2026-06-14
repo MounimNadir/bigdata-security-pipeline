@@ -1,0 +1,5 @@
+# PostgreSQL adapter — used in foreachBatch writes
+psycopg2-binary==2.9.9
+
+# Environment variable loading
+python-dotenv==1.0.0
