@@ -23,6 +23,7 @@ services:
       - kafka-data:/var/lib/kafka/data
     environment:
       # KRaft settings
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093

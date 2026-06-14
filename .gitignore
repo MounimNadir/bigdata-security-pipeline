@@ -228,9 +228,11 @@ __pycache__/
 spark/output/
 *.parquet
 
-# Parquet data files
+# Spark runtime data — generated at runtime, never commit
+data/checkpoints/
 data/parquet/**/*.parquet
 data/parquet/**/*.crc
 
 # GeoIP database (large binary file — each person downloads their own)
+data/*.mmdb
 
