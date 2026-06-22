@@ -4,8 +4,8 @@ from pyspark.sql.functions import (
     lit, max as spark_max
 )
 
-WINDOW_DURATION = "2 minutes"
-SLIDE_DURATION  = "30 seconds"
+WINDOW_DURATION = "1 minute"
+SLIDE_DURATION  = "20 seconds"
 HOST_THRESHOLD  = 5
 
 

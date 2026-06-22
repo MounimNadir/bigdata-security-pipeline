@@ -49,7 +49,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgres-ds" },
-          "rawSql": "SELECT COUNT(*) AS value FROM alerts",
+          "rawSql": "SELECT COUNT(*) AS value FROM alerts WHERE $__timeFilter(timestamp)",
           "format": "table",
           "refId": "A"
         }
@@ -86,7 +86,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgres-ds" },
-          "rawSql": "SELECT COUNT(*) AS value FROM alerts WHERE severity = 'CRIT'",
+          "rawSql": "SELECT COUNT(*) AS value FROM alerts WHERE $__timeFilter(timestamp) AND severity = 'CRIT'",
           "format": "table",
           "refId": "A"
         }
@@ -121,7 +121,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgres-ds" },
-          "rawSql": "SELECT SUM(event_count) AS value FROM traffic_stats",
+          "rawSql": "SELECT SUM(event_count) AS value FROM traffic_stats WHERE $__timeFilter(window_start)",
           "format": "table",
           "refId": "A"
         }
@@ -156,7 +156,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgres-ds" },
-          "rawSql": "SELECT SUM(bytes_total) AS value FROM traffic_stats",
+          "rawSql": "SELECT SUM(bytes_total) AS value FROM traffic_stats WHERE $__timeFilter(window_start)",
           "format": "table",
           "refId": "A"
         }

@@ -81,6 +81,7 @@ def read_kafka_stream(spark: SparkSession, topic: str):
         .option("subscribe", topic)
         .option("startingOffsets", "latest")
         .option("maxOffsetsPerTrigger", "1000")
+        .option("failOnDataLoss", "false")
         .load()
     )
 
@@ -184,9 +185,9 @@ def main():
 
     # Add watermark for windowed aggregations
     # Tells Spark how late arriving events can be
-    auth_df     = auth_df.withWatermark("timestamp",     "30 seconds")
-    firewall_df = firewall_df.withWatermark("timestamp", "30 seconds")
-    web_df      = web_df.withWatermark("timestamp",      "30 seconds")
+    auth_df     = auth_df.withWatermark("timestamp",     "5 seconds")
+    firewall_df = firewall_df.withWatermark("timestamp", "5 seconds")
+    web_df      = web_df.withWatermark("timestamp",      "5 seconds")
 
     print("[SPARK] Parsers configured")
 
